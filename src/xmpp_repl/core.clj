@@ -1,48 +1,13 @@
 (ns xmpp-repl.core
-  (:import (org.jivesoftware.smack ChatManagerListener MessageListener XMPPConnection)
-           (org.jivesoftware.smack.packet Message)))
-
-(def connections (agent {}))
-
-(defn connections-as-list []
-  (map #(:connection (nth %1 1)) @connections))
-
-(defmulti receive-msg (fn [from _] from))
-(defmethod receive-msg :default [from msg] (println "Message from" from ":" msg))
-
-(defn regigster-listener [connection]
-  (-> connection (.getChatManager)
-      (.addChatListener
-       (proxy [ChatManagerListener] []
-         (chatCreated [chat created]
-           (-> chat (.addMessageListener
-                     (proxy [MessageListener] []
-                       (processMessage [chat msg]
-                         (when (.getBody msg)
-                           (receive-msg (first (.split (.getFrom msg) "/")) (.getBody msg))))))))))))
+  (:use [xmpp-repl.connection]
+        [xmpp-repl.contact]
+        [xmpp-repl.chat])
+  (:import (org.jivesoftware.smack.packet Message)))
 
 (defn login [email password]
-  (let [[user server] (.split email "@")
-        connection (doto (XMPPConnection. server)
-                     (.connect)
-                     (.login user password))]
+  (let [connection (create-connection email password)]
     (regigster-listener connection)
-    (send connections conj {email {:connection connection}})))
-
-(defn contacts [connection]
-  (-> connection .getRoster .getEntries))
-
-(defn contains-contact [connection email]
-  (some #(= email %1)
-        (map #(.getUser %1) (contacts connection))))
-
-(defn contact-connection [email]
-  (let [av-cons (filter
-                 #(not (nil? %1))
-                 (map #(when (contains-contact %1 email) %1) (connections-as-list)))]
-    (if (empty? av-cons)
-      (first (connections-as-list))
-      (first av-cons))))
+    (add-connection email connection)))
 
 (defn send-message [to msg]
   (let [packet (doto (Message.)
@@ -51,7 +16,7 @@
     (-> (contact-connection to) (.sendPacket packet))))
 
 (defn logout [email]
-  (send connections dissoc email))
+  (remove-connection email))
 
 (defn show-contacts []
   (doseq [connection (connections-as-list)]
