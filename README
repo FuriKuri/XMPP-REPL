@@ -1,13 +1,20 @@
 # xmpp-repl
-
-FIXME: write description
+Simple XMPP-Client for the Clojure-REPL.
 
 ## Usage
 
-FIXME: write
+Login:
+(login "email@jabber.org" "password")
 
-## License
+Send Message:
+(send-message "to-email@jabber.org" "Message")
 
-Copyright (C) 2012 FIXME
+Logout:
+(logout "email@jabber.org"
 
+## License / Used Libraries
+Copyright (C) 2012 FuriKuri
 Distributed under the Eclipse Public License, the same as Clojure.
+
+Using code from:
+ * smack (xmpp) (Apache Licence)
