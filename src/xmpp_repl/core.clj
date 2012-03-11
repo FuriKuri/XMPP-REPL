@@ -1,5 +1,5 @@
 (ns xmpp-repl.core
-  (:import (org.jivesoftware.smack ChatManagerListener MessageListener)
+  (:import (org.jivesoftware.smack ChatManagerListener MessageListener XMPPConnection)
            (org.jivesoftware.smack.packet Message)))
 
 (def connections (agent {}))
@@ -20,7 +20,7 @@
 
 (defn login [email password]
   (let [[user server] (.split email "@")
-        connection (doto (org.jivesoftware.smack.XMPPConnection. server)
+        connection (doto (XMPPConnection. server)
                      (.connect)
                      (.login user password))]
     (regigster-listener connection)
@@ -30,16 +30,37 @@
   (let [packet (doto (Message.)
                  (.setTo to)
                  (.setBody msg))]
-    (-> (:connection (@connections "furichan@jabber.org")) (.sendPacket packet))))
+    (-> (contact-connection to) (.sendPacket packet))))
 
 (defn logout [email]
   (send connections dissoc email))
 
-(defn show-contacts []
-  (doseq [connection @connections]
-    (let [roster (.getRoster (:connection (nth connection 1)))]
-      (doseq [client (-> roster .getEntries)]
-        (println client)
-        (println (-> roster (.getPresence (.getUser client))))))))
+(defn contacts [connection]
+  (-> connection .getRoster .getEntries))
 
-;; defmulti über macro [&users body]
+(defn contains-contact [connection email]
+  (some #(= email %1)
+        (map #(.getUser %1) (contacts connection))))
+
+(defn connections-as-list []
+  (map #(:connection (nth %1 1)) @connections))
+
+(defn contact-connection [email]
+  (let [av-cons (filter
+                 #(not (nil? %1))
+                 (map #(when (contains-contact %1 email) %1) (connections-as-list)))]
+    (if (empty? av-cons)
+      (first (connections-as-list))
+      (first av-cons))))
+
+(defn show-contacts []
+  (doseq [connection (connections-as-list)]
+    (doseq [client (contacts connection)]
+      (println client)
+      (println (-> connection .getRoster (.getPresence (.getUser client)))))))
+
+(defmacro add-fav
+  ([contact] (let [msg (gensym)
+                  fname (.replace (.replace contact "@" "-") "." "-")]
+              `(intern *ns* (symbol ~fname) (fn [~msg] (send-message ~contact ~msg)))))
+  ([contact & more] `(println "not supported")))
