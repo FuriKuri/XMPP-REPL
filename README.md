@@ -26,4 +26,4 @@ Copyright (C) 2012 FuriKuri
 Distributed under the Eclipse Public License, the same as Clojure.
 
 Using code from:
- * smack (xmpp) (Apache Licence)
+ - smack (xmpp) (Apache Licence)
